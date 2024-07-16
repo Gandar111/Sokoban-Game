@@ -2,32 +2,35 @@ import * as THREE from './modules/three.module.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/controls/OrbitControls.js';
 import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/loaders/FBXLoader.js';
 
+// Globale Variablen
 let renderer, camera, scene, controls, player, mixer, action;
 let textureLoader = new THREE.TextureLoader();
 let walls = [];
 let boxes = [];
 let goals = [];
 let currentBox;
-let wallMaterial, boxMaterial, goalMaterial;
 let level;
-let playerSize = 1;
+const playerSize = 1;
 
 // Audio Context und Buffer
-let audioContext = new AudioContext();
+const audioContext = new AudioContext();
 let backgroundSource;
-let soundBuffer;
 
 // Texturen laden
-let boxTexture = textureLoader.load('textures/crate.jpg');
-let wallTexture = textureLoader.load('textures/brick2.jpg');
-let goalTexture = textureLoader.load('textures/goal.jpg');
+const boxTexture = textureLoader.load('textures/crate.jpg');
+const wallTexture = textureLoader.load('textures/brick2.jpg');
+const goalTexture = textureLoader.load('textures/goal.jpg');
+const planeTexture = textureLoader.load('textures/wood.jpg');
 
 // Spielerstartposition
 let playerStart = { x: 0, z: 0 };
+const congratulationsOverlay = document.getElementById('congratulations');
 
+// Hauptfunktion
 function main() {
+    setupButtons();
     loadBackgroundSound('sounds/gameMusik.mp3');
-    let canvas = document.querySelector("#c");
+    const canvas = document.querySelector("#c");
 
     // Renderer initialisieren
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -74,19 +77,38 @@ function main() {
     initializeLevel(level);
 }
 
+// Start- und Restart-Buttons einrichten
+function setupButtons() {
+    const startButton = document.getElementById('startButton');
+    const restartButton = document.getElementById('restartButton');
+
+    startButton.addEventListener('click', () => {
+        resetLevel();
+        scene.remove(player);
+        initializeLevel(level);
+        hideCongratulations();
+    });
+
+    restartButton.addEventListener('click', () => {
+        resetLevel();
+        scene.remove(player);
+        initializeLevel(level);
+        hideCongratulations();
+    });
+}
+
 // Spielfläche hinzufügen
 function addFloor() {
-    let planeSize = 20;
-    let planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
-    let planeTexture = textureLoader.load('textures/wood.jpg');
+    const planeSize = 20;
+    const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
     planeTexture.wrapS = THREE.RepeatWrapping;
     planeTexture.wrapT = THREE.RepeatWrapping;
     planeTexture.magFilter = THREE.NearestFilter;
     planeTexture.minFilter = THREE.NearestFilter;
     planeTexture.repeat.set(4, 4);
-    let planeMaterial = new THREE.MeshStandardMaterial({ map: planeTexture });
+    const planeMaterial = new THREE.MeshStandardMaterial({ map: planeTexture });
 
-    let plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.rotation.x = -Math.PI / 2;
     plane.receiveShadow = true;
     scene.add(plane);
@@ -94,12 +116,12 @@ function addFloor() {
 
 // Lichter zur Szene hinzufügen
 function addLights() {
-    let directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(5, 10, 2);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
 
-    let ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 }
 
@@ -107,11 +129,11 @@ function addLights() {
 function initializeLevel(levelData) {
     level = levelData;
 
-    wallMaterial = new THREE.MeshStandardMaterial({ map: wallTexture });
-    boxMaterial = new THREE.MeshStandardMaterial({ map: boxTexture });
-    goalMaterial = new THREE.MeshStandardMaterial({ map: goalTexture });
+    const wallMaterial = new THREE.MeshStandardMaterial({ map: wallTexture });
+    const boxMaterial = new THREE.MeshStandardMaterial({ map: boxTexture });
+    const goalMaterial = new THREE.MeshStandardMaterial({ map: goalTexture });
 
-    createGameObjects();
+    createGameObjects(wallMaterial, boxMaterial, goalMaterial);
 
     loadPlayerModel(() => {
         playerStart = findPlayerStart(level);
@@ -136,7 +158,7 @@ function initializeLevel(levelData) {
 
 // Spielermodell laden
 function loadPlayerModel(callback) {
-    let loader = new FBXLoader();
+    const loader = new FBXLoader();
     loader.load('3DMODELS/Pushing.fbx', (object) => {
         player = object;
         player.scale.set(0.01, 0.01, 0.01);
@@ -158,7 +180,7 @@ function loadPlayerModel(callback) {
 }
 
 // Spielobjekte erstellen
-function createGameObjects() {
+function createGameObjects(wallMaterial, boxMaterial, goalMaterial) {
     walls = [];
     boxes = [];
     goals = [];
@@ -169,19 +191,19 @@ function createGameObjects() {
             let posZ = z - 3;
 
             if (cell === '#') {
-                createWall(posX, posZ);
+                createWall(posX, posZ, wallMaterial);
             } else if (cell === '$') {
-                createBox(posX, posZ);
+                createBox(posX, posZ, boxMaterial);
             } else if (cell === '*') {
-                createGoal(posX, posZ);
+                createGoal(posX, posZ, goalMaterial);
             }
         });
     });
 }
 
 // Wand erstellen
-function createWall(x, z) {
-    let wall = new THREE.Mesh(new THREE.BoxGeometry(playerSize, 1.8, playerSize), wallMaterial);
+function createWall(x, z, material) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(playerSize, 1.8, playerSize), material);
     wall.position.set(x, 0.5, z);
     wall.castShadow = true;
     scene.add(wall);
@@ -189,8 +211,8 @@ function createWall(x, z) {
 }
 
 // Box erstellen
-function createBox(x, z) {
-    let box = new THREE.Mesh(new THREE.BoxGeometry(playerSize, 1.8, playerSize), boxMaterial);
+function createBox(x, z, material) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(playerSize, 1.8, playerSize), material);
     box.position.set(x, 0.5, z);
     box.castShadow = true;
     scene.add(box);
@@ -198,9 +220,9 @@ function createBox(x, z) {
 }
 
 // Ziel erstellen
-function createGoal(x, z) {
-    let goalGeometry = new THREE.PlaneGeometry(playerSize, playerSize);
-    let goal = new THREE.Mesh(goalGeometry, goalMaterial);
+function createGoal(x, z, material) {
+    const goalGeometry = new THREE.PlaneGeometry(playerSize, playerSize);
+    const goal = new THREE.Mesh(goalGeometry, material);
     goal.position.set(x, 0.5, z);
     goal.rotation.x = -Math.PI / 2;
     goal.castShadow = true;
@@ -210,15 +232,15 @@ function createGoal(x, z) {
 
 // Spieler und ggf. Boxen bewegen
 function movePlayer(dx, dz) {
-    let newX = player.position.x + dx;
-    let newZ = player.position.z + dz;
+    const newX = player.position.x + dx;
+    const newZ = player.position.z + dz;
 
     if (isWall(newX, newZ)) return;
 
-    let box = getBox(newX, newZ);
+    const box = getBox(newX, newZ);
     if (box) {
-        let boxNewX = box.position.x + dx;
-        let boxNewZ = box.position.z + dz;
+        const boxNewX = box.position.x + dx;
+        const boxNewZ = box.position.z + dz;
         if (isWall(boxNewX, boxNewZ) || getBox(boxNewX, boxNewZ)) return;
         box.position.set(boxNewX, 0.5, boxNewZ);
         currentBox = box;
@@ -240,7 +262,7 @@ function movePlayer(dx, dz) {
     }
 
     if (currentBox) {
-        let targetPosition = currentBox.position.clone().add(new THREE.Vector3(0, 5, 5));
+        const targetPosition = currentBox.position.clone().add(new THREE.Vector3(0, 5, 5));
         camera.position.lerp(targetPosition, 0.2);
         camera.lookAt(currentBox.position);
     }
@@ -276,10 +298,13 @@ function isGoal(x, z) {
 
 // Levelabschluss überprüfen
 function checkLevelCompletion() {
-    let allBoxesOnGoals = boxes.every(box => isGoal(box.position.x, box.position.z));
+    const allBoxesOnGoals = boxes.every(box => isGoal(box.position.x, box.position.z));
     if (allBoxesOnGoals) {
         console.log("Level completed! Moving to the next level...");
         resetLevel();
+
+        // Hier wird die Nachricht eingeblendet
+        showCongratulations();
 
         level = [
             '###########',
@@ -308,10 +333,10 @@ function resetLevel() {
 
 // Renderergröße anpassen
 function resizeRendererToDisplaySize(renderer) {
-    let canvas = renderer.domElement;
-    let width = canvas.clientWidth;
-    let height = canvas.clientHeight;
-    let needResize = canvas.width !== width || canvas.height !== height;
+    const canvas = renderer.domElement;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const needResize = canvas.width !== width || canvas.height !== height;
     if (needResize) {
         renderer.setSize(width, height, false);
         camera.aspect = width / height;
@@ -345,7 +370,7 @@ function playSound(url) {
         .then(response => response.arrayBuffer())
         .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
         .then(decodedData => {
-            let soundSource = audioContext.createBufferSource();
+            const soundSource = audioContext.createBufferSource();
             soundSource.buffer = decodedData;
             soundSource.connect(audioContext.destination);
             soundSource.start(0);
@@ -363,6 +388,17 @@ function animate() {
         mixer.update(0.01);
     }
     renderer.render(scene, camera);
+}
+
+// Meldung "Gratulation!" einblenden
+function showCongratulations() {
+    congratulationsOverlay.style.display = 'block';
+    setTimeout(hideCongratulations, 5000); // Blendet die Nachricht nach 5 Sekunden aus
+}
+
+// Meldung "Gratulation!" ausblenden
+function hideCongratulations() {
+    congratulationsOverlay.style.display = 'none';
 }
 
 // Hauptprogramm starten
